@@ -3,7 +3,6 @@ package com.yo.sm.config;
 import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.security.core.Authentication;
 
 import java.util.Date;
 
@@ -17,17 +16,19 @@ public class JwtTokenProvider {
     private int jwtExpirationInMs;
 
     // JWT 토큰 생성
-    public String generateToken(Authentication authentication) {
+    // username 매개변수를 직접 setSubject 메서드에 전달합니다. 이는 JWT 토큰의 "sub" (subject) 클레임을 설정하는데 사용
+    public String generateToken(String username) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         return Jwts.builder()
-                .setSubject((String) authentication.getPrincipal())
-                .setIssuedAt(new Date())
+                .setSubject(username)
+                .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
                 .compact();
     }
+
 
     // JWT 토큰에서 인증 정보 조회
     public String getUserIdFromJWT(String token) {
