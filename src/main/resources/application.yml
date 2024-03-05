@@ -1,4 +1,3 @@
-
 server:
   port: 9010
 
@@ -8,29 +7,28 @@ spring:
     username: yo
     password: codeclick
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
-      ddl-auto: update  # JPA
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+        use_sql_comments: true
   security:
     cors:
       enabled: true
-    oauth2:
 
 app:
   jwt:
     secret: AjoG+21NgY3GTOhy1NDUR1xmWDrUW+S8q2rTnC3Ko8CkoTpUmOh0xoxxOslUxfV4ntoxnAxpuIR8lvvNpahyEA==
     expiration-ms: 3600000
 
-  logging:
-    level:
-      org:
-        hibernate:
-          SQL: DEBUG
-          type:
-            descriptor:
-              sql: TRACE
+logging:
+  level:
+    org:
+      hibernate:
+        SQL: DEBUG
+        type:
+          descriptor:
+            sql: TRACE

@@ -17,9 +17,3 @@
 - Maven
 
 ## 시작하기
-
-프로젝트를 로컬 시스템으로 클론하려면 다음 명령어를 사용합니다:
-
-bash
-git clone https://github.com/yourusername/Spring-Security-JWT-Integration.git
-cd Spring-Security-JWT-Integration

@@ -8,6 +8,7 @@ import org.springdoc.core.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+
 @Configuration
 public class SwaggerConfig {
 
@@ -23,7 +24,7 @@ public class SwaggerConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info().title("YO 애플리케이션 API")
-                        .description("YO 애플리케이션의 모든 REST API에 대한 문서입니다.")
+                        .description("YO 애플리케이션의 모든 REST API에 대한 Swagger문서")
                         .version("v1"))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new io.swagger.v3.oas.models.Components()
@@ -33,4 +34,5 @@ public class SwaggerConfig {
                                 .scheme("bearer")
                                 .bearerFormat("JWT")));
     }
+
 }

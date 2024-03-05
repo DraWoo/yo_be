@@ -45,9 +45,6 @@ public class MemberServiceImpl implements MemberService{
         member.setPassword(encryptedPassword); // 암호화된 비밀번호로 설정
         member = memberRepository.save(member);
 
-        //엔티티를 DTO로 변환하여 반환
-        memberDto.setId(member.getId());
-        memberDto.setCreatedAt(member.getCreatedAt());
         return memberDto;
     }
 
@@ -62,9 +59,7 @@ public class MemberServiceImpl implements MemberService{
         Optional<Member> member = memberRepository.findById(id);
         if (member.isPresent()) {
             MemberDto memberDto = new MemberDto();
-            memberDto.setId(member.get().getId());
             memberDto.setUsername(member.get().getUsername());
-            memberDto.setCreatedAt(member.get().getCreatedAt());
             return memberDto;
         }
         return null; // or throw an exception
@@ -84,8 +79,6 @@ public class MemberServiceImpl implements MemberService{
             member.setPassword(memberDto.getPassword()); // 비밀번호는 암호화 처리가 필요합니다.
             member = memberRepository.save(member);
 
-            memberDto.setId(member.getId());
-            memberDto.setCreatedAt(member.getCreatedAt());
             return memberDto;
         }
         return null; // or throw an exception
@@ -120,7 +113,8 @@ public class MemberServiceImpl implements MemberService{
             throw new BadCredentialsException("Invalid password");
         }
 
-        return createMemberResponseDtoAndAuthenticate(member);
+        String token = jwtTokenProvider.generateToken(member.getUsername());
+        return createMemberResponseDtoAndAuthenticate(member, token);
     }
 
     /**
@@ -129,23 +123,17 @@ public class MemberServiceImpl implements MemberService{
      * @param member 정보를 가져올 멤버
      * @return 멤버 정보와 JWT 토큰을 포함하는 MemberResponseDto 객체
      */
-    private MemberResponseDto createMemberResponseDtoAndAuthenticate(Member member) {
-        MemberResponseDto memberDto = new MemberResponseDto();
-        memberDto.setId(member.getId());
-        memberDto.setUsername(member.getUsername());
-        memberDto.setCreatedAt(member.getCreatedAt());
+    private MemberResponseDto createMemberResponseDtoAndAuthenticate(Member member, String token) {
+        MemberResponseDto responseDto = new MemberResponseDto();
+        responseDto.setUsername(member.getUsername());
+        responseDto.setJwt(token); // JWT 토큰 설정
 
-        String token = authenticateAndGenerateToken(member.getUsername());
-        memberDto.setJwt(token); // JWT 토큰 설정
-
-        return memberDto;
+        return responseDto;
     }
 
     private MemberDto convertToMemberDto(Member member) {
         MemberDto responseDto = new MemberDto();
-        responseDto.setId(member.getId());
         responseDto.setUsername(member.getUsername());
-        responseDto.setCreatedAt(member.getCreatedAt());
 
         return responseDto;
     }
@@ -177,6 +165,7 @@ public class MemberServiceImpl implements MemberService{
 
     @Override
     public MemberDto registerUser(MemberDto memberDto) {
+        //가져온 패스워드 인코딩
         String encodedPassword = passwordEncoder.encode(memberDto.getPassword());
 
         Member newMember = new Member();
@@ -185,7 +174,6 @@ public class MemberServiceImpl implements MemberService{
 
         Member createdMember = memberRepository.save(newMember);
 
-        MemberDto responseDto = new MemberDto();
         // 저장된 Member 엔티티로부터 MemberDto를 생성합니다.
         return convertToMemberDto(createdMember);
     }
