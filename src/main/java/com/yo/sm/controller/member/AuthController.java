@@ -75,7 +75,9 @@ public class AuthController {
             MemberDto newUser = memberService.registerUser(memberDto);
             return ResponseEntity.ok(newUser);
         }
+        // 컨트롤러의 예외 처리 부분
         catch (UsernameAlreadyExistsException e) {
+            log.error("회원가입 오류: {}", e.getMessage());
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(e.getMessage());

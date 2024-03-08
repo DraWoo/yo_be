@@ -8,6 +8,7 @@ import com.yo.sm.model.exception.UsernameAlreadyExistsException;
 import com.yo.sm.repository.member.MemberRepository;
 import javax.annotation.Resource;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.Optional;
-
+@Slf4j
 @Service
 public class MemberService{
     @Resource
@@ -166,9 +167,11 @@ public class MemberService{
      */
     public MemberDto registerUser(MemberDto memberDto) {
         //사용자ID 중복체크
-        if(memberRepository.existsByUsername(memberDto.getUsername())){
-            //사용자 정의 예외 또는 DTO로 결과 반환
+        if (memberRepository.existsByUsername(memberDto.getUsername())) {
+            log.info("회원가입 시도: 사용자 이름 중복 -> {}", memberDto.getUsername());
             throw new UsernameAlreadyExistsException("이미 존재하는 사용자ID 입니다.");
+        } else {
+            log.info("회원가입 시도: 사용자 이름 -> {}", memberDto.getUsername());
         }
 
 
