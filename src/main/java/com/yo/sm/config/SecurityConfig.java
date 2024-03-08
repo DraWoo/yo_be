@@ -42,7 +42,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf().and().csrf().disable() // CSRF 보호 기능을 비활성화합니다.
+                .cors().and().csrf().and().csrf().disable() // CSRF 보호 기능을 비활성화합니다.
                 .exceptionHandling().authenticationEntryPoint(unauthorizedHandler).and() //// 인증 실패 시 동작을 정의
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and() //// 세션 생성 정책을 Stateless로 설정
                 .authorizeRequests() // 요청에 대한 접근 제어를 시작합니다.
