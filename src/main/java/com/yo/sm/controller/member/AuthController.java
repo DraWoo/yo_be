@@ -34,6 +34,9 @@ import static com.yo.sm.model.ApiResultCode.succeed;
  * 로그인 성공 시 사용자에게 JWT를 발급하고 이 토큰을 사용
  * API 요청의 Authorization 헤더에 추가함으로써 인증된 요청을 할 수 있습니다.
  * 토큰 리프레시는 토큰의 유효기간이 만료되기 전에 새로운 토큰으로 교체하는 기능
+ *  ResponseEntity<T>클래스:
+ *  HTTP 상태 코드, 헤더 및 응답 본문을 포함할 수 있으며,
+ *  RESTful 웹 서비스에서 클라이언트에게 응답 데이터와 함께 추가적인 HTTP 정보를 제공하는 데 주로 사용
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -125,16 +128,17 @@ public class AuthController {
  * @param request 클라이언트의 요청
  * @return 토큰을 무효화하면 200 OK 응답을 반환하며,
  *         토큰이 없는 경우 "Unauthorized request" 메시지와 함께 401 Unauthorized 응답을 반환합니다.
+ * 클라이언트 사이드에서 토큰 삭제 => 서버 사이드에 알릴 필요가 있을 시 주석제거 [블랙리스트 토큰 관리등 .]
  */
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest request){
-        String token = jwtTokenProvider.resolveToken(request);
-        if(token != null){
-            jwtTokenProvider.invalidateToken(token);
-            return ResponseEntity.ok("JWT Token has been invalidated");
-        }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized request");
-    }
+//    @PostMapping("/logout")
+//    public ResponseEntity<?> logout(HttpServletRequest request){
+//        String token = jwtTokenProvider.resolveToken(request);
+//        if(token != null){
+//            jwtTokenProvider.invalidateToken(token);
+//            return ResponseEntity.ok("JWT Token has been invalidated");
+//        }
+//        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized request");
+//    }
 
 /**
  * JWT 토큰 갱신 메서드
