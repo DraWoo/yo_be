@@ -56,7 +56,9 @@ public class SecurityConfig {
                             , "/v3/api-docs/**"
                             ,"/api/auth/signup"
                             , "/api/auth/login"
-                            ,"/api/auth//authorize-token"
+                            ,"/api/auth/authorize-token"
+                            ,"/api/auth/refresh-token"
+                            ,"/api/auth/verify-token"
                             ,"/api/auth/logout").permitAll()  // Swagger UI 접근 허용 // "/api/public/**"에 대한 요청은 인증 없이 허용합니다.
                 .anyRequest().authenticated(); // 나머지 요청에 대해서는 인증을 요구합니다.
                 // JwtAuthenticationFilter를 UsernamePasswordAuthenticationFilter 이전에 추가

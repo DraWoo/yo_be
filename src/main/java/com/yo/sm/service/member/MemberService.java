@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.Security;
 import java.util.Collections;
 import java.util.Optional;
 @Slf4j
@@ -28,23 +29,9 @@ public class MemberService{
     @Resource
     private JwtTokenProvider jwtTokenProvider;
 
-    /**
-     * 사용자 정보를 저장합니다.
-     * 비밀번호는 암호화하여 저장하며 마지막에 DTO로 변환
-     *
-     * @param memberDto 저장할 사용자 정보를 담은 DTO
-     * @return 저장된 사용자 정보를 담은 DTO
-     */
-    public MemberDto saveMember(MemberDto memberDto){
-        //엔티티를 Dto로 변환하고 저장
-        Member member = new Member();
-        //비밀번호 암호화
-        String encryptedPassword = passwordEncoder.encode(memberDto.getPassword());
-        member.setUsername(memberDto.getUsername());
-        member.setPassword(encryptedPassword); // 암호화된 비밀번호로 설정
-        member = memberRepository.save(member);
-
-        return memberDto;
+    //비밀번호 암호화 로직
+    private String encodePassword(String rawPassword){
+        return passwordEncoder.encode((rawPassword));
     }
 
     /**
@@ -102,14 +89,27 @@ public class MemberService{
      */
     public MemberResponseDto authenticate(String username, String password) {
         Member member = memberRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + username));
 
         if (!passwordEncoder.matches(password, member.getPassword())) {
-            throw new BadCredentialsException("Invalid password");
+            throw new BadCredentialsException("비밀번호가 올바르지 않습니다.");
         }
 
+        // 인증된 사용자에 대한 SecurityContext를 설정합니다.
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // JWT 토큰을 생성합니다.
         String token = jwtTokenProvider.generateToken(member.getUsername());
-        return createMemberResponseDtoAndAuthenticate(member, token);
+
+        // MemberResponseDto 객체를 생성하고 반환합니다.
+        MemberResponseDto responseDto = new MemberResponseDto();
+        responseDto.setUsername(member.getUsername());
+        responseDto.setJwt(token);
+
+        log.info("사용자 '{}' 인증 성공, 토큰 발급.", member.getUsername());
+        return responseDto;
     }
 
     /**
@@ -117,14 +117,25 @@ public class MemberService{
      *
      * @param member 정보를 가져올 멤버
      * @return 멤버 정보와 JWT 토큰을 포함하는 MemberResponseDto 객체
+     *  인증된 사용자에 대한 MemberResponseDto 객체 생성과 사용자 인증 로직을 createMemberResponseDtoAndAuthenticate 메소드에서 통합적으로 처리
      */
-    private MemberResponseDto createMemberResponseDtoAndAuthenticate(Member member, String token) {
-        MemberResponseDto responseDto = new MemberResponseDto();
-        responseDto.setUsername(member.getUsername());
-        responseDto.setJwt(token); // JWT 토큰 설정
-
-        return responseDto;
-    }
+//    private MemberResponseDto createMemberResponseDtoAndAuthenticate(Member member) {
+//        // Authentication 인터페이스의 getPrincipal 메소드를 호출하여 사용자 이름을 구함
+//        String principal = member.getUsername();
+//
+//        //UsernamePasswordAuthenticationToken 객체를 생성하는데, 이때 principal (즉, 사용자 이름)이 인증 객체에 사용
+//        UsernamePasswordAuthenticationToken authentication =
+//                new UsernamePasswordAuthenticationToken(principal, null , Collections.emptyList());
+//        SecurityContextHolder.getContext().setAuthentication(authentication);
+//
+//        String token = jwtTokenProvider.generateToken(principal);
+//        MemberResponseDto responseDto = new MemberResponseDto();
+//        responseDto.setUsername(member.getUsername());
+//        responseDto.setJwt(token); // JWT 토큰 설정
+//
+//        log.info("사용자 '{}'가 인증되었습니다. 토큰이 발급되었습니다.", principal);
+//        return responseDto;
+//    }
 
     private MemberDto convertToMemberDto(Member member) {
         MemberDto responseDto = new MemberDto();
@@ -146,16 +157,16 @@ public class MemberService{
      * @param username 인증에 사용할 사용자 이름
      * @return 생성된 JWT 토큰
      */
-    private String authenticateAndGenerateToken(String username) {
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        // Authentication 인터페이스의 getPrincipal 메소드를 호출하여 사용자 이름을 구합니다.
-        String principal = (String) authentication.getPrincipal();
-
-        return jwtTokenProvider.generateToken(principal);
-    }
+//    private String authenticateAndGenerateToken(String username) {
+//        UsernamePasswordAuthenticationToken authentication =
+//                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+//        SecurityContextHolder.getContext().setAuthentication(authentication);
+//
+//        // Authentication 인터페이스의 getPrincipal 메소드를 호출하여 사용자 이름을 구합니다.
+//        String principal = (String) authentication.getPrincipal();
+//
+//        return jwtTokenProvider.generateToken(principal);
+//    }
 
     /**
      * 사용자의 가입 요청을 처리하고 새로운 회원 정보를 저장합니다.

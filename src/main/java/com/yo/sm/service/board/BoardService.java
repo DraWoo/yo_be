@@ -27,6 +27,8 @@ public class BoardService{
         // username을 이용하여 Member 엔티티를 조회합니다.
         Member member = memberRepository.findByUsername(boardDto.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        //board 엔티티 객체에 매핑 => 새로운 board 객체 생성
+        //클라이언트에서 전달받은 데이터를 매핑하는데 사용
         Board board = modelMapper.map(boardDto, Board.class);
         board.setUser(member); // Member 설정
         board = boardRepository.save(board);

@@ -159,6 +159,12 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!--sms 인증 서비스 추가 -->
+		<dependency>
+			<groupId>com.twilio.sdk</groupId>
+			<artifactId>twilio</artifactId>
+			<version>8.0.0</version>
+		</dependency>
 	</dependencies>
 
 	<dependencyManagement>
