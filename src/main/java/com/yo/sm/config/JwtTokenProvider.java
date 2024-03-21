@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * JWT 토큰 관리를 위한 핵심 클래스
@@ -40,10 +41,17 @@ public class JwtTokenProvider {
     @Value("${app.jwt.expiration-sec}")
     private int jwtExpirationInSec;
 
+    /**
+     *사용자 이름과 만료 시간을 기반으로 JWT 토큰을 생성
+     * @param username 사용자 이름
+     * @param durationMs 토큰의 유효 기간 (밀리초 단위)
+     * @return 생성된 JWT 토큰 문자열
+     */
     private String generateTokenWithExpiry(String username, long durationMs) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + durationMs);
 
+        log.info("[JWT 생성] 사용자: {}, 만료 시간: {}", username, expiryDate);
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(now)
@@ -51,18 +59,26 @@ public class JwtTokenProvider {
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
                 .compact();
     }
+
     /**
-     * JWT 토큰 생성
-     * @param username 인증에 사용되는 사용자의 이름.
-     * 이 메소드는 username 매개변수를 직접 setSubject 메서드에 전달. 이는 JWT 토큰의 "sub" (subject) 클레임을 설정하는데 사용
-     * @return 생성된 JWT 토큰 문자열.
+     * 사용자 이름을 받아 JWT 토큰을 생성합니다. 토큰의 만료 시간은 설정 파일에서 정의된 값을 사용합니다.
+     *
+     * @param username 사용자의 이름
+     * @return 생성된 JWT 토큰 문자열
      */
     public String generateToken(String username) {
         int jwtExpirationInMillis = jwtExpirationInSec * 1000;
-        return generateTokenWithExpiry(username, jwtExpirationInMillis);
+        String token = generateTokenWithExpiry(username, jwtExpirationInMillis);
+        log.info("[JWT 생선] 사용자: {}", username);
+        return token;
     }
 
-    // JWT 토큰에서 인증 정보 조회
+    /**
+     * JWT 토큰으로부터 사용자 이름을 추출합니다.
+     *
+     * @param token JWT 토큰
+     * @return 추출된 사용자 이름
+     */
     public String getUsernameFromJWT(String token) {
         Claims claims = Jwts.parser()
                 .setSigningKey(jwtSecret)
@@ -73,33 +89,32 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 주어진 JWT 토큰의 유효성을 검증합니다.
-     * JWT 토큰이 만료되었거나, 서명이 일치하지 않는 경우, 또는 구조가 잘못된 경우 유효하지 않다고 판단합니다.
+     * 제공된 JWT 토큰이 유효한지 검증합니다.
      *
-     * @param authToken 검증할 JWT 토큰.
-     * @return 토큰이 유효하면 true, 그렇지 않다면 false를 반환합니다.
+     * @param authToken 검증할 JWT 토큰
+     * @return 토큰이 유효하면 true, 그렇지 않으면 false
      */
     public boolean validateToken(String authToken) {
         try {
             Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
             return true;
         } catch (ExpiredJwtException e) {
-            log.error("JWT 토큰 만료 오류. 만료된 JWT: {}. 현재 시간: {}, 차이: {} 밀리초. 허용 시간 오차: 0 밀리초.",
+            log.error("[JWT 검증] 만료된 JWT: {}. 현재 시간: {}, 차이: {} 밀리초. 허용 시간 오차: 0 밀리초.",
                     e.getClaims().getExpiration(), new Date(), Math.abs(new Date().getTime() - e.getClaims().getExpiration().getTime()));
             throw e;
         } catch (SignatureException | MalformedJwtException | UnsupportedJwtException | IllegalArgumentException ex) {
             // 이 예외들은 여기에서 로그를 남기고 false를 반환합니다.
-            log.error("JWT 검증 실패: {}", ex.getMessage());
+            log.error("[JWT 검증 실패] 이유: {}", ex.getMessage());
             return false;
         }
     }
 
-        /**
-         * JWT 토큰을 해독하고 사용자의 이름을 기반으로 새로운 JWT 토큰을 생성합니다.
-         *
-         * @param expiredToken 만료된 JWT 토큰.
-         * @return 새로 생성된 JWT 토큰.
-         */
+    /**
+     * HTTP 요청에서 JWT 토큰을 추출합니다.
+     *
+     * @param request HTTP 요청 객체
+     * @return 추출된 토큰 문자열, 없으면 null
+     */
     public String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
@@ -111,7 +126,7 @@ public class JwtTokenProvider {
      * JWT 토큰 갱신 메서드
      * 주어진 토큰의 사용자 정보를 가져와서 새로운 토큰을 생성합니다.
      *
-     * @param token 갱신할 JWT 토큰
+     * @param:token 갱신할 JWT 토큰
      * @return 새로운 JWT 토큰
      * 1초 = 1000 밀리초
      * 1분 = 60초 = 60 * 1000 밀리초
@@ -121,25 +136,44 @@ public class JwtTokenProvider {
      */
     public String generateRefreshToken(String username) {
         long refreshTokenDurationMs = 2592000000L; // 30일
-        return generateTokenWithExpiry(username, refreshTokenDurationMs);
+        String newToken = generateTokenWithExpiry(username,refreshTokenDurationMs);
+        log.info("[JWT 갱신] 사용자: {}, 새로운 토큰 발행", username);
+        return newToken;
     }
 
     /**
-     * JWT 토큰으로부터 인증 정보를 얻는 메서드
-     * JWT 토큰의 사용자 정보를 이용해서 인증 객체(Authentication)를 생성합니다.
+     * JWT 토큰으로부터 인증 정보를 생성합니다.
      *
-     * @param token 사용자 정보가 담긴 JWT 토큰
-     * @return 생성된 Authentication 객체
+     * @param token JWT 토큰
+     * @return 인증 객체 (Authentication)
      */
     public Authentication getAuthentication(String token) {
         String username = getUsernameFromJWT(token);
+        // 해당 사용자에 대한 권한 정보는 없으므로, 빈 권한 목록으로 인증 토큰을 생성합니다.
         return new UsernamePasswordAuthenticationToken(username, null, new ArrayList<>());
     }
 
-    private List<String> blackList = new ArrayList<>();
-
-    // 토큰 무효화 로직
+    // 실제 환경에서는 레디스나 데이터베이스를 사용할 수 있습니다.
+    // 여기서는 예시로 ConcurrentHashMap을 사용합니다.
+    private ConcurrentHashMap<String, Boolean> blackList = new ConcurrentHashMap<>();
+    /**
+     * 특정 JWT 토큰을 무효화합니다.
+     *
+     * @param token 무효화할 JWT 토큰
+     */
     public void invalidateToken(String token) {
-        blackList.add(token);
+        // 블랙리스트에 토큰을 추가하여 무효화합니다.
+        blackList.put(token, Boolean.TRUE);
+        log.info("[JWT 무효화] 토큰이 블랙리스트에 추가되었습니다: {}", token);
+    }
+
+    /**
+     * 주어진 토큰이 무효화되었는지 확인합니다.
+     *
+     * @param token 검증할 JWT 토큰
+     * @return 토큰이 무효화되었다면 true, 그렇지 않다면 false
+     */
+    public boolean isTokenInvalidated(String token) {
+        return blackList.getOrDefault(token, Boolean.FALSE);
     }
 }

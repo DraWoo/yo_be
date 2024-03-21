@@ -55,16 +55,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                log.info("[인증 성공] 사용자: {}", username);
             }
         } catch (ExpiredJwtException e) {
-            // Simply log expired JWT and let the request proceed
-            log.info("The JWT has expired: {} ", e.getMessage());
+            log.info("[인증 실패] JWT 만료됨: {}", e.getMessage());
         } catch (Exception e) {
-            log.error("Could not set user authentication in security context", e);
+            log.error("[인증 오류] 보안 컨텍스트 설정 실패", e);
         }
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * HTTP 요청의 헤더에서 JWT를 추출합니다.
+     *
+     * @param request HTTP 요청 객체
+     * @return 추출된 JWT 문자열, 없으면 null
+     */
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {

@@ -57,13 +57,12 @@ public class AuthController {
     @Resource
     private JwtTokenProvider jwtTokenProvider;
 
-/**
- * 사용자를 등록하는 메서드
- * 새로운 사용자를 등록하고 결과를 리턴합니다.
- *
- * @param memberDto 등록할 사용자 정보
- * @return ApiResult<MemberDto>
- */
+    /**
+     * 사용자 회원가입을 처리하는 메서드
+     *
+     * @param memberDto 사용자가 제공한 회원가입 정보
+     * @return ResponseEntity 사용자 정보 또는 에러 메시지를 담은 응답
+     */
     @PostMapping("/signup")
     @Operation(
             summary = "회원 가입",
@@ -83,24 +82,24 @@ public class AuthController {
     public ResponseEntity<?> registerUser(@Valid @RequestBody MemberDto memberDto) {
         try {
             MemberDto newUser = memberService.registerUser(memberDto);
+            log.info("사용자 등록 성공 : {}", newUser.getUsername());
             return ResponseEntity.ok(newUser);
         }
         // 컨트롤러의 예외 처리 부분
         catch (UsernameAlreadyExistsException e) {
-            log.error("회원가입 오류: {}", e.getMessage());
+            log.error("회원가입 오류 - 이미 존재하는 사용자: {}", e.getMessage());
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(e.getMessage());
         }
     }
 
-/**
- * 로그인 메서드
- * 사용자가 제공한 정보로 로그인을 시도합니다.
- *
- * @param memberDto 로그인할 사용자 정보
- * @return ResponseEntity<>
- */
+    /**
+     * 사용자 로그인을 처리하는 메서드
+     *
+     * @param memberDto 로그인 정보
+     * @return ResponseEntity 로그인 성공 시 토큰 정보, 실패 시 에러 메시지
+     */
     @PostMapping("/login")
     @Operation(summary = "로그인", description = "사용자 이름과 비밀번호로 로그인을 시도합니다.")
     public ResponseEntity<?> login(@RequestBody MemberDto memberDto) {
@@ -111,6 +110,7 @@ public class AuthController {
             // 로그인 성공 응답을 구성합니다.
             HttpHeaders headers = new HttpHeaders();
             headers.add("Authorization", "Bearer " + authenticatedMember.getJwt());
+            log.info("로그인 성공: {}", memberDto.getUsername());
             return new ResponseEntity<>(authenticatedMember, headers, HttpStatus.OK);
         } catch (UsernameNotFoundException | BadCredentialsException e) {
             // 인증 실패에 대한 응답을 구성합니다.
@@ -139,13 +139,12 @@ public class AuthController {
 //        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized request");
 //    }
 
-/**
- * JWT 토큰 갱신 메서드
- * 이 메서드는 클라이언트의 요청에 따라 기존의 JWT 토큰을 갱신합니다.
- *
- * @param request 클라이언트의 요청
- * @return ResponseEntity<JwtAuthenticationResponse>
- */
+    /**
+     * 사용자의 JWT 토큰을 갱신하는 메서드
+     *
+     * @param request 클라이언트 요청
+     * @return ResponseEntity 새로운 JWT 토큰 또는 에러 메시지
+     */
     @PostMapping("/refresh-token")
     @Operation(summary= "토큰 갱신", description = "기존의 JWT 토큰을 갱신")
     public ResponseEntity<?> refreshAccessToken(HttpServletRequest request) {
@@ -153,6 +152,7 @@ public class AuthController {
         if (StringUtils.hasText(token)) {
             try {
                 if (jwtTokenProvider.validateToken(token)) {
+                    log.info("토큰 갱신 요청 성공");
                     return ResponseEntity.ok(new JwtAuthenticationResponse(token));
                 }
             } catch (ExpiredJwtException e) {
@@ -160,22 +160,20 @@ public class AuthController {
                 String newToken = jwtTokenProvider.generateRefreshToken(username);
                 HttpHeaders headers = new HttpHeaders();
                 headers.add("Authorization", "Bearer " + newToken);
+                log.info("토큰 만료로 인한 갱신 성공: 새 토큰 발급됨");
                 return new ResponseEntity<>(new JwtAuthenticationResponse(newToken), headers, HttpStatus.OK);
             } catch (JwtException | IllegalArgumentException e) {
-                log.error("Token validation error: {}", e.getMessage());
+                log.error("토큰 갱신 중 오류 발생: {}", e.getMessage());
             }
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Could not refresh token");
     }
-/**
- * JWT 토큰 확인 메소드
- * 이 메소드는 클라이언트가 제공한 JWT 토큰의 유효성을 검사합니다.
- *
- * @param request 클라이언트의 요청
- * @return 유효한 토큰인 경우 "이 토큰은 유효합니다."라는 메시지와 함께 200 OK 응답을 반환하며,
- *         유효하지 않은 토큰인 경우 "이 토큰은 유효하지 않습니다."라는 메시지와 함께 401 Unauthorized 응답을 반환합니다.
- *         토큰이 없는 경우 "토큰이 없습니다"라는 메시지와 함께 400 Bad Request 응답을 반환합니다.
- */
+    /**
+     * 제공된 JWT 토큰의 유효성을 검사
+     *
+     * @param request 클라이언트 요청
+     * @return ResponseEntity 토큰 유효성 검사 결과
+     */
     @PostMapping("/verify-token")
     @Operation(summary = "토큰 확인",description = "제공된 JWT 토큰의 유효성을 검사합니다.")
     public ResponseEntity<?> verifyToken(HttpServletRequest request){
@@ -183,9 +181,11 @@ public class AuthController {
         if (token != null) {
             try {
                 if(jwtTokenProvider.validateToken(token)) {
+                    log.info("토큰 검증 성공: 토큰이 유효함");
                     return ResponseEntity.ok("토큰이 유효합니다.");
                 }else {
                     // validateToken 메소드가 false를 반환할 경우, JWT 검증에 실패했다는 메시지를 반환합니다.
+                    log.warn("토큰 검증 실패: 토큰이 유효하지 않음");
                     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("JWT 토큰 검증에 실패하였습니다.");
                 }
             } catch (ExpiredJwtException e) {
@@ -202,20 +202,18 @@ public class AuthController {
         }
     }
 
-/**
- * 새로운 JWT 토큰을 발급합니다.
- * 토큰 발급 요청이 들어오면, 사용자 이름을 기반으로 새로운 JWT 토큰을 생성
- * 그리고 이 토큰은 다른 API 요청에 사용
- * 일반적으로, 이 메서드는 인증 과정을 거친 후에 사용자가 서버로부터 안전하게 접근할 수 있는 토큰을 확보하기 위해 사용합니다.
- *
- * @param username 토큰 생성을 위한 사용자 이름
- * @return ResponseEntity<JwtAuthenticationResponse> JWT 토큰을 포함하는 JwtAuthenticationResponse 객체를 반환합니다.
- */
+    /**
+     * 사용자 이름을 받아 새로운 JWT를 발급하고 반환
+     *
+     * @param username 토큰 생성을 위한 사용자 이름
+     * @return ResponseEntity 생성된 JWT 토큰을 포함하는 응답
+     */
     @PostMapping("/authorize-token")
     @Operation(summary = "토큰 발급", description = "사용자 이름을 받아 새로운 JWT를 발급")
     public ResponseEntity<JwtAuthenticationResponse> authorizeToken(@RequestParam String username){
         String authorizeToken = jwtTokenProvider.generateToken(username);
         JwtAuthenticationResponse response = new JwtAuthenticationResponse(authorizeToken);
+        log.info("새 토큰 발급: 사용자 {}", username);
         return ResponseEntity.ok(response);
     }
 

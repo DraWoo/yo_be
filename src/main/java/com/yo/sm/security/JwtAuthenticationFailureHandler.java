@@ -1,4 +1,5 @@
 package com.yo.sm.security;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,7 @@ import java.io.IOException;
  * SecurityConfig 클래스에서 이 핸들러를 사용하여 인증 실패 시의 처리 로직을 정의합니다.
  */
 @Component
+@Slf4j
 public class JwtAuthenticationFailureHandler implements AuthenticationEntryPoint {
 
     /**
@@ -30,6 +32,7 @@ public class JwtAuthenticationFailureHandler implements AuthenticationEntryPoint
     public void commence(HttpServletRequest request,
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
+        log.error("인증 오류 {}", authException.getMessage());
         // 인증 실패 시 클라이언트에게 보낼 응답을 구현
         response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Authentication token was either missing or invalid.");
     }
