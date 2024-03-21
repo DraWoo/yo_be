@@ -26,6 +26,7 @@ public class JwtAuthenticationFailureHandler implements AuthenticationEntryPoint
      * @throws IOException 입출력 예외 처리
      */
     @Override
+
     public void commence(HttpServletRequest request,
                          HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
