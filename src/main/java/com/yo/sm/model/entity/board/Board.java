@@ -35,7 +35,7 @@ public class Board {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     @Comment("작성자")
-    private Member user;
+    private Member username;
 
     // onCreate 메소드에서는 createdAt 필드에 현재 시각(LocalDateTime.now())을 할당
     // 엔티티가 생성되어 데이터베이스에 저장될 때의 시각을 자동으로 기록

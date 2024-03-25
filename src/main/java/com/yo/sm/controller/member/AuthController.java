@@ -2,6 +2,7 @@ package com.yo.sm.controller.member;
 
 import com.yo.sm.config.JwtTokenProvider;
 import com.yo.sm.model.ApiResult;
+import com.yo.sm.model.ApiResultCode;
 import com.yo.sm.model.dto.member.MemberDto;
 import com.yo.sm.model.dto.member.MemberResponseDto;
 import com.yo.sm.model.exception.UsernameAlreadyExistsException;
@@ -29,6 +30,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import static com.yo.sm.model.ApiResultCode.failed;
@@ -102,42 +104,44 @@ public class AuthController {
      */
     @PostMapping("/login")
     @Operation(summary = "로그인", description = "사용자 이름과 비밀번호로 로그인을 시도합니다.")
-    public ResponseEntity<?> login(@RequestBody MemberDto memberDto) {
+    public ResponseEntity<ApiResult<MemberResponseDto>> login(@RequestBody MemberDto memberDto) {
         try {
-            // 사용자 인증을 MemberService를 통해 처리합니다.
             MemberResponseDto authenticatedMember = memberService.authenticate(memberDto.getUsername(), memberDto.getPassword());
+            ApiResult<MemberResponseDto> result = ApiResult.<MemberResponseDto>builder()
+                    .code(succeed)
+                    .payload(authenticatedMember)
+                    .build();
 
-            // 로그인 성공 응답을 구성합니다.
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("Authorization", "Bearer " + authenticatedMember.getJwt());
-            log.info("로그인 성공: {}", memberDto.getUsername());
-            return new ResponseEntity<>(authenticatedMember, headers, HttpStatus.OK);
+            return ResponseEntity.ok(result);
         } catch (UsernameNotFoundException | BadCredentialsException e) {
-            // 인증 실패에 대한 응답을 구성합니다.
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body("로그인 실패: " + e.getMessage());
+            ApiResult<?> errorResult = ApiResult.builder()
+                    .code(failed)
+                    .payload("로그인 실패: " + e.getMessage())
+                    .build();
+            //status(HttpStatus.UNAUTHORIZED).body(errorResult);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body((ApiResult<MemberResponseDto>) errorResult);
         }
     }
 
-/**
- * 로그아웃 메서드
- * 사용자의 요청에 따라 제공된 JWT 토큰을 무효화합니다.
- *
- * @param request 클라이언트의 요청
- * @return 토큰을 무효화하면 200 OK 응답을 반환하며,
- *         토큰이 없는 경우 "Unauthorized request" 메시지와 함께 401 Unauthorized 응답을 반환합니다.
- * 클라이언트 사이드에서 토큰 삭제 => 서버 사이드에 알릴 필요가 있을 시 주석제거 [블랙리스트 토큰 관리등 .]
- */
-//    @PostMapping("/logout")
-//    public ResponseEntity<?> logout(HttpServletRequest request){
-//        String token = jwtTokenProvider.resolveToken(request);
-//        if(token != null){
-//            jwtTokenProvider.invalidateToken(token);
-//            return ResponseEntity.ok("JWT Token has been invalidated");
-//        }
-//        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized request");
-//    }
+    /**
+     * 로그아웃 메서드
+     * 사용자의 요청에 따라 제공된 JWT 토큰을 무효화합니다.
+     *
+     * @param request 클라이언트의 요청
+     * @return 토큰을 무효화하면 200 OK 응답을 반환하며,
+     *         토큰이 없는 경우 "Unauthorized request" 메시지와 함께 401 Unauthorized 응답을 반환합니다.
+     * 클라이언트 사이드에서 토큰 삭제 => 서버 사이드에 알릴 필요가 있을 시 주석제거 [블랙리스트 토큰 관리등 .]
+     */
+    @PostMapping("/logout")
+    @Operation(summary = "로그아웃", description = "토큰 무효화")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        String token = jwtTokenProvider.resolveToken(request);
+        if (token != null && jwtTokenProvider.validateToken(token)) {
+            jwtTokenProvider.invalidateToken(token);
+            return ResponseEntity.ok().body("User logged out successfully.");
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token.");
+    }
 
     /**
      * 사용자의 JWT 토큰을 갱신하는 메서드
@@ -151,22 +155,18 @@ public class AuthController {
         String token = jwtTokenProvider.resolveToken(request);
         if (StringUtils.hasText(token)) {
             try {
-                if (jwtTokenProvider.validateToken(token)) {
-                    log.info("토큰 갱신 요청 성공");
-                    return ResponseEntity.ok(new JwtAuthenticationResponse(token));
-                }
-            } catch (ExpiredJwtException e) {
-                String username = e.getClaims().getSubject();
+                String username = jwtTokenProvider.getUsernameFromJWT(token);
                 String newToken = jwtTokenProvider.generateRefreshToken(username);
-                HttpHeaders headers = new HttpHeaders();
-                headers.add("Authorization", "Bearer " + newToken);
-                log.info("토큰 만료로 인한 갱신 성공: 새 토큰 발급됨");
-                return new ResponseEntity<>(new JwtAuthenticationResponse(newToken), headers, HttpStatus.OK);
-            } catch (JwtException | IllegalArgumentException e) {
-                log.error("토큰 갱신 중 오류 발생: {}", e.getMessage());
+                log.info("[토큰 갱신] 사용자: {}, 만료 시간: {}",
+                        username, new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+                return ResponseEntity.ok(new JwtAuthenticationResponse(newToken));
+            } catch (ExpiredJwtException e) {
+                log.info("[토큰 갱신 실패] 사용자: {}, 만료된 토큰의 만료 시간: {}",
+                        e.getClaims().getSubject(), new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(e.getClaims().getExpiration()));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token expired");
             }
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Could not refresh token");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized: Token is invalid or expired");
     }
     /**
      * 제공된 JWT 토큰의 유효성을 검사

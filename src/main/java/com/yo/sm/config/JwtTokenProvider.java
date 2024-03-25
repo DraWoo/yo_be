@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -49,9 +50,12 @@ public class JwtTokenProvider {
      */
     private String generateTokenWithExpiry(String username, long durationMs) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + durationMs);
+        // 만료 시간을 6개월로 설정
+        long sixMonthsInMs = 1000L * 60 * 60 * 24 * 30 * 6;
+        Date expiryDate = new Date(now.getTime() + sixMonthsInMs);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-        log.info("[JWT 생성] 사용자: {}, 만료 시간: {}", username, expiryDate);
+        log.info("[JWT 생성] 사용자: {}, 만료 시간: {}", username, dateFormat.format(expiryDate));
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(now)
@@ -69,7 +73,7 @@ public class JwtTokenProvider {
     public String generateToken(String username) {
         int jwtExpirationInMillis = jwtExpirationInSec * 1000;
         String token = generateTokenWithExpiry(username, jwtExpirationInMillis);
-        log.info("[JWT 생선] 사용자: {}", username);
+        log.info("[JWT 생성] 사용자: {}", username);
         return token;
     }
 
@@ -95,12 +99,14 @@ public class JwtTokenProvider {
      * @return 토큰이 유효하면 true, 그렇지 않으면 false
      */
     public boolean validateToken(String authToken) {
+        Date now = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         try {
             Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
             return true;
         } catch (ExpiredJwtException e) {
             log.error("[JWT 검증] 만료된 JWT: {}. 현재 시간: {}, 차이: {} 밀리초. 허용 시간 오차: 0 밀리초.",
-                    e.getClaims().getExpiration(), new Date(), Math.abs(new Date().getTime() - e.getClaims().getExpiration().getTime()));
+                    e.getClaims().getExpiration(), dateFormat.format(now), Math.abs(new Date().getTime() - e.getClaims().getExpiration().getTime()));
             throw e;
         } catch (SignatureException | MalformedJwtException | UnsupportedJwtException | IllegalArgumentException ex) {
             // 이 예외들은 여기에서 로그를 남기고 false를 반환합니다.

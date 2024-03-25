@@ -30,7 +30,7 @@ public class BoardService{
         //board 엔티티 객체에 매핑 => 새로운 board 객체 생성
         //클라이언트에서 전달받은 데이터를 매핑하는데 사용
         Board board = modelMapper.map(boardDto, Board.class);
-        board.setUser(member); // Member 설정
+        board.setUsername(member); // Member 설정
         board = boardRepository.save(board);
         return modelMapper.map(board, BoardDto.class);
     }
